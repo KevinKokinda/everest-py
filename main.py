@@ -11,6 +11,9 @@ def generate_salt(length=16):
 def hash_key(key, salt):
     return hashlib.sha512((key + salt).encode()).hexdigest()
 
+def rotate_key(key, rotation_amount):
+    return key[-rotation_amount:] + key[:-rotation_amount]
+
 def xor_encrypt_decrypt(text, key):
     return ''.join(chr(ord(c) ^ ord(k)) for c, k in zip(text, key))
 
@@ -41,32 +44,62 @@ def remove_noise(noisy_text, noise_factor=2):
 def complex_encrypt(password, key):
     salt = generate_salt()
     hashed_key = hash_key(key, salt)
+    
     step1 = xor_encrypt_decrypt(password, hashed_key[:len(password)])
+    hashed_key = rotate_key(hashed_key, 3)
+    
     step2 = shift_characters(step1, 7)
+    hashed_key = rotate_key(hashed_key, 5)
+    
     step3 = reverse_text(step2)
+    hashed_key = rotate_key(hashed_key, 7)
+    
     step4 = base64_encode(step3)
+    hashed_key = rotate_key(hashed_key, 11)
+    
     step5 = xor_encrypt_decrypt(step4, hashed_key[:len(step4)])
+    hashed_key = rotate_key(hashed_key, 13)
+    
     step6 = shift_characters(step5, 13)
+    hashed_key = rotate_key(hashed_key, 17)
+    
     step7 = add_noise(step6)
     step8 = base64_encode(step7)
     step9 = xor_encrypt_decrypt(step8, generate_random_key(len(step8)))
+    
     encrypted_password = shift_characters(step9, 19) + salt
     return encrypted_password
 
 def complex_decrypt(encrypted_password, key):
     salt = encrypted_password[-16:]
     encrypted_core = encrypted_password[:-16]
+    
     hashed_key = hash_key(key, salt)
+    
     step9 = shift_characters(encrypted_core, -19)
     step8 = xor_encrypt_decrypt(step9, generate_random_key(len(step9)))
+    
     step7 = base64_decode(step8)
+    hashed_key = rotate_key(hashed_key, 17)
+    
     step6 = remove_noise(step7)
+    hashed_key = rotate_key(hashed_key, 13)
+    
     step5 = shift_characters(step6, -13)
+    hashed_key = rotate_key(hashed_key, 11)
+    
     step4 = xor_encrypt_decrypt(step5, hashed_key[:len(step5)])
+    hashed_key = rotate_key(hashed_key, 7)
+    
     step3 = base64_decode(step4)
+    hashed_key = rotate_key(hashed_key, 5)
+    
     step2 = reverse_text(step3)
+    hashed_key = rotate_key(hashed_key, 3)
+    
     step1 = shift_characters(step2, -7)
     decrypted_password = xor_encrypt_decrypt(step1, hashed_key[:len(step1)])
+    
     return decrypted_password
 
 def create_password_strength_model():
