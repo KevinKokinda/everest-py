@@ -6,6 +6,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from PIL import Image
 import os
+from datetime import datetime
 
 def generate_salt(length=16):
     return ''.join(random.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(length))
@@ -43,6 +44,20 @@ def add_noise(text, noise_factor=2):
 def remove_noise(noisy_text, noise_factor=2):
     return noisy_text[::noise_factor + 1]
 
+def log_activity(activity_type, details):
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    with open("activity_log.txt", "a") as log_file:
+        log_file.write(f"{timestamp} - {activity_type}: {details}\n")
+
+def review_logs():
+    if os.path.exists("activity_log.txt"):
+        with open("activity_log.txt", "r") as log_file:
+            logs = log_file.read()
+        print("Activity Log:")
+        print(logs)
+    else:
+        print("No logs found.")
+
 def complex_encrypt(password, key):
     salt = generate_salt()
     hashed_key = hash_key(key, salt)
@@ -70,6 +85,7 @@ def complex_encrypt(password, key):
     step9 = xor_encrypt_decrypt(step8, generate_random_key(len(step8)))
     
     encrypted_password = shift_characters(step9, 19) + salt
+    log_activity("Encryption", f"Password encrypted with salt {salt}")
     return encrypted_password
 
 def complex_decrypt(encrypted_password, key):
@@ -102,6 +118,7 @@ def complex_decrypt(encrypted_password, key):
     step1 = shift_characters(step2, -7)
     decrypted_password = xor_encrypt_decrypt(step1, hashed_key[:len(step1)])
     
+    log_activity("Decryption", f"Password decrypted using salt {salt}")
     return decrypted_password
 
 def text_to_bin(text):
@@ -131,6 +148,7 @@ def encode_image(image_path, text, output_path):
 
     image.putdata(new_pixels)
     image.save(output_path)
+    log_activity("Steganography Encryption", f"Password hidden in image {output_path}")
 
 def decode_image(image_path):
     image = Image.open(image_path)
@@ -144,6 +162,7 @@ def decode_image(image_path):
     delimiter_index = binary_text.find('1111111111111110')
     binary_text = binary_text[:delimiter_index]
 
+    log_activity("Steganography Decryption", f"Password retrieved from image {image_path}")
     return bin_to_text(binary_text)
 
 def complex_encrypt_with_steg(password, key, image_path, output_image):
@@ -193,12 +212,14 @@ def save_key(key, filename):
     with open(filename, 'w') as f:
         f.write(base64_encode(key))
     print(f"Key saved to {filename}")
+    log_activity("Key Management", f"Key saved to {filename}")
 
 def load_key(filename):
     if os.path.exists(filename):
         with open(filename, 'r') as f:
             key = base64_decode(f.read())
         print(f"Key loaded from {filename}")
+        log_activity("Key Management", f"Key loaded from {filename}")
         return key
     else:
         print(f"Key file {filename} does not exist.")
@@ -209,7 +230,7 @@ def list_keys(directory="."):
     return keys
 
 def main():
-    action = input("Would you like to encrypt a password or decrypt a password? (Enter 'encrypt' or 'decrypt'): ").strip().lower()
+    action = input("Would you like to encrypt a password, decrypt a password, or review logs? (Enter 'encrypt', 'decrypt', or 'review logs'): ").strip().lower()
     if action == 'encrypt':
         password = input("Enter a password to encrypt: ")
         key = input("Enter a key for encryption: ")
@@ -235,4 +256,28 @@ def main():
     elif action == 'decrypt':
         load_key_option = input("Would you like to load a saved key? (yes/no): ").strip().lower()
         if load_key_option == 'yes':
-            keys = list
+            key_filename = input("Enter the filename to load the key from: ").strip()
+            key = load_key(key_filename)
+            if key is None:
+                print("Decryption aborted.")
+                return
+        else:
+            key = input("Enter the key for decryption: ")
+        
+        decryption_method = input("Choose decryption method ('standard' or 'steganography'): ").strip().lower()
+        if decryption_method == 'standard':
+            encrypted_password = input("Enter the encrypted password: ")
+            decrypted = complex_decrypt(encrypted_password, key)
+            print("Decrypted password:", decrypted)
+        elif decryption_method == 'steganography':
+            image_path = input("Enter the path of the image with the hidden password: ")
+            decrypted = complex_decrypt_with_steg(image_path, key)
+            print("Decrypted password:", decrypted)
+        else:
+            print("Invalid decryption method")
+    elif action == 'review logs':
+        review_logs()
+    else:
+        print("Invalid action")
+
+main()
