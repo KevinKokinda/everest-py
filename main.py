@@ -4,6 +4,7 @@ import base64
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
+from PIL import Image
 
 def generate_salt(length=16):
     return ''.join(random.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(length))
@@ -102,6 +103,58 @@ def complex_decrypt(encrypted_password, key):
     
     return decrypted_password
 
+def text_to_bin(text):
+    return ''.join(format(ord(c), '08b') for c in text)
+
+def bin_to_text(binary):
+    binary_values = [binary[i:i+8] for i in range(0, len(binary), 8)]
+    return ''.join(chr(int(b, 2)) for b in binary_values)
+
+def encode_image(image_path, text, output_path):
+    image = Image.open(image_path)
+    binary_text = text_to_bin(text) + '1111111111111110'
+    binary_index = 0
+    
+    pixels = list(image.getdata())
+    new_pixels = []
+
+    for pixel in pixels:
+        new_pixel = []
+        for value in pixel:
+            if binary_index < len(binary_text):
+                new_pixel.append(value & ~1 | int(binary_text[binary_index]))
+                binary_index += 1
+            else:
+                new_pixel.append(value)
+        new_pixels.append(tuple(new_pixel))
+
+    image.putdata(new_pixels)
+    image.save(output_path)
+
+def decode_image(image_path):
+    image = Image.open(image_path)
+    pixels = list(image.getdata())
+    binary_text = ''
+
+    for pixel in pixels:
+        for value in pixel:
+            binary_text += str(value & 1)
+
+    delimiter_index = binary_text.find('1111111111111110')
+    binary_text = binary_text[:delimiter_index]
+
+    return bin_to_text(binary_text)
+
+def complex_encrypt_with_steg(password, key, image_path, output_image):
+    encrypted_password = complex_encrypt(password, key)
+    encode_image(image_path, encrypted_password, output_image)
+    return output_image
+
+def complex_decrypt_with_steg(image_path, key):
+    encrypted_password = decode_image(image_path)
+    decrypted_password = complex_decrypt(encrypted_password, key)
+    return decrypted_password
+
 def create_password_strength_model():
     model = tf.keras.Sequential([
         layers.Dense(64, activation='relu', input_shape=(5,)),
@@ -140,16 +193,36 @@ def main():
     if action == 'encrypt':
         password = input("Enter a password to encrypt: ")
         key = input("Enter a key for encryption: ")
-        strength = predict_password_strength(password)
-        print(f"Password strength: {strength}")
-        encrypted = complex_encrypt(password, key)
-        print("Encrypted password:", encrypted)
+        encryption_method = input("Choose encryption method ('standard' or 'steganography'): ").strip().lower()
+        if encryption_method == 'standard':
+            strength = predict_password_strength(password)
+            print(f"Password strength: {strength}")
+            encrypted = complex_encrypt(password, key)
+            print("Encrypted password:", encrypted)
+        elif encryption_method == 'steganography':
+            image_path = input("Enter the path of the image to hide the password in: ")
+            output_image = input("Enter the path to save the output image: ")
+            strength = predict_password_strength(password)
+            print(f"Password strength: {strength}")
+            output = complex_encrypt_with_steg(password, key, image_path, output_image)
+            print(f"Password encrypted and hidden in image: {output}")
+        else:
+            print("Invalid encryption method")
     elif action == 'decrypt':
-        encrypted_password = input("Enter the encrypted password: ")
-        key = input("Enter the key for decryption: ")
-        decrypted = complex_decrypt(encrypted_password, key)
-        print("Decrypted password:", decrypted)
+        encryption_method = input("Choose decryption method ('standard' or 'steganography'): ").strip().lower()
+        if encryption_method == 'standard':
+            encrypted_password = input("Enter the encrypted password: ")
+            key = input("Enter the key for decryption: ")
+            decrypted = complex_decrypt(encrypted_password, key)
+            print("Decrypted password:", decrypted)
+        elif encryption_method == 'steganography':
+            image_path = input("Enter the path of the image with the hidden password: ")
+            key = input("Enter the key for decryption: ")
+            decrypted = complex_decrypt_with_steg(image_path, key)
+            print("Decrypted password:", decrypted)
+        else:
+            print("Invalid decryption method")
     else:
-        print("Invalid")
+        print("Invalid action")
 
 main()
