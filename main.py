@@ -204,6 +204,10 @@ def load_key(filename):
         print(f"Key file {filename} does not exist.")
         return None
 
+def list_keys(directory="."):
+    keys = [f for f in os.listdir(directory) if f.endswith('.key')]
+    return keys
+
 def main():
     action = input("Would you like to encrypt a password or decrypt a password? (Enter 'encrypt' or 'decrypt'): ").strip().lower()
     if action == 'encrypt':
@@ -231,10 +235,4 @@ def main():
     elif action == 'decrypt':
         load_key_option = input("Would you like to load a saved key? (yes/no): ").strip().lower()
         if load_key_option == 'yes':
-            key_filename = input("Enter the filename to load the key from: ").strip()
-            key = load_key(key_filename)
-            if key is None:
-                print("Decryption aborted.")
-                return
-        else:
-            key
+            keys = list
