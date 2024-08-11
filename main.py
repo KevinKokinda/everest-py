@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
 from PIL import Image
+import os
 
 def generate_salt(length=16):
     return ''.join(random.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(length))
@@ -188,12 +189,31 @@ def predict_password_strength(password):
     strength = password_strength_model.predict(features)[0][0]
     return "Strong" if strength > 0.5 else "Weak"
 
+def save_key(key, filename):
+    with open(filename, 'w') as f:
+        f.write(base64_encode(key))
+    print(f"Key saved to {filename}")
+
+def load_key(filename):
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            key = base64_decode(f.read())
+        print(f"Key loaded from {filename}")
+        return key
+    else:
+        print(f"Key file {filename} does not exist.")
+        return None
+
 def main():
     action = input("Would you like to encrypt a password or decrypt a password? (Enter 'encrypt' or 'decrypt'): ").strip().lower()
     if action == 'encrypt':
         password = input("Enter a password to encrypt: ")
         key = input("Enter a key for encryption: ")
         encryption_method = input("Choose encryption method ('standard' or 'steganography'): ").strip().lower()
+        save_key_option = input("Would you like to save the key? (yes/no): ").strip().lower()
+        if save_key_option == 'yes':
+            key_filename = input("Enter the filename to save the key: ").strip()
+            save_key(key, key_filename)
         if encryption_method == 'standard':
             strength = predict_password_strength(password)
             print(f"Password strength: {strength}")
@@ -209,20 +229,12 @@ def main():
         else:
             print("Invalid encryption method")
     elif action == 'decrypt':
-        encryption_method = input("Choose decryption method ('standard' or 'steganography'): ").strip().lower()
-        if encryption_method == 'standard':
-            encrypted_password = input("Enter the encrypted password: ")
-            key = input("Enter the key for decryption: ")
-            decrypted = complex_decrypt(encrypted_password, key)
-            print("Decrypted password:", decrypted)
-        elif encryption_method == 'steganography':
-            image_path = input("Enter the path of the image with the hidden password: ")
-            key = input("Enter the key for decryption: ")
-            decrypted = complex_decrypt_with_steg(image_path, key)
-            print("Decrypted password:", decrypted)
+        load_key_option = input("Would you like to load a saved key? (yes/no): ").strip().lower()
+        if load_key_option == 'yes':
+            key_filename = input("Enter the filename to load the key from: ").strip()
+            key = load_key(key_filename)
+            if key is None:
+                print("Decryption aborted.")
+                return
         else:
-            print("Invalid decryption method")
-    else:
-        print("Invalid action")
-
-main()
+            key
